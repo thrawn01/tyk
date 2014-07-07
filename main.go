@@ -11,9 +11,9 @@ import (
         "net/url"
         "os"
         "strconv"
-	"github.com/rcrowley/goagain"
-	"net"
-	"time"
+	"github.com/cupcake/mannersagain"
+//	"net"
+//	"time"
 )
 
 var log = logrus.New()
@@ -175,46 +175,53 @@ func main() {
 
         targetPort := fmt.Sprintf(":%d", config.ListenPort)
 
+	loadApps()
+	err := mannersagain.ListenAndServe(targetPort, nil)
+	if err != nil {
+		log.Error(err)
+	}
+
 	// Handle reload when SIGUSR2 is received
-	l, err := goagain.Listener()
-	if nil != err {
+//	l, err := goagain.Listener()
 
-		// Listen on a TCP or a UNIX domain socket (TCP here).
-		l, err = net.Listen("tcp", targetPort)
-		if nil != err {
-			log.Fatalln(err)
-		}
-		log.Println("Listening on", l.Addr())
-
-		// Accept connections in a new goroutine.
-		loadApps()
-		go http.Serve(l, nil)
-
-	} else {
-
-		// Resume accepting connections in a new goroutine.
-		log.Println("Resuming listening on", l.Addr())
-		loadApps()
-		go http.Serve(l, nil)
-
-		// Kill the parent, now that the child has started successfully.
-		if err := goagain.Kill(); nil != err {
-			log.Fatalln(err)
-		}
-
-	}
-
-	// Block the main goroutine awaiting signals.
-	if _, err := goagain.Wait(l); nil != err {
-		log.Fatalln(err)
-	}
-
-	// Do whatever's necessary to ensure a graceful exit like waiting for
-	// goroutines to terminate or a channel to become closed.
-	//
-	// In this case, we'll simply stop listening and wait one second.
-	if err := l.Close(); nil != err {
-		log.Fatalln(err)
-	}
-	time.Sleep(1e9)
+//	if nil != err {
+//
+//		// Listen on a TCP or a UNIX domain socket (TCP here).
+//		l, err = net.Listen("tcp", targetPort)
+//		if nil != err {
+//			log.Fatalln(err)
+//		}
+//		log.Println("Listening on", l.Addr())
+//
+//		// Accept connections in a new goroutine.
+//		loadApps()
+//		go http.Serve(l, nil)
+//
+//	} else {
+//
+//		// Resume accepting connections in a new goroutine.
+//		log.Println("Resuming listening on", l.Addr())
+//		loadApps()
+//		go http.Serve(l, nil)
+//
+//		// Kill the parent, now that the child has started successfully.
+//		if err := goagain.Kill(); nil != err {
+//			log.Fatalln(err)
+//		}
+//
+//	}
+//
+//	// Block the main goroutine awaiting signals.
+//	if _, err := goagain.Wait(l); nil != err {
+//		log.Fatalln(err)
+//	}
+//
+//	// Do whatever's necessary to ensure a graceful exit like waiting for
+//	// goroutines to terminate or a channel to become closed.
+//	//
+//	// In this case, we'll simply stop listening and wait one second.
+//	if err := l.Close(); nil != err {
+//		log.Fatalln(err)
+//	}
+//	time.Sleep(1e9)
 }
