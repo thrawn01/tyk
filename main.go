@@ -188,7 +188,7 @@ func loadApps(APISpecs []APISpec, Muxer *http.ServeMux) {
 
 		if spec.APIDefinition.UseKeylessAccess {
 			// for KeyLessAccess we can't support rate limiting, versioning or access rules
-			chain := alice.New().Then(proxyHandler)
+			chain := alice.New(CreateMiddleware(&VersionCheck{tykMiddleware}, tykMiddleware)).Then(proxyHandler)
 			Muxer.Handle(spec.Proxy.ListenPath, chain)
 
 		} else {
