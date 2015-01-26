@@ -49,7 +49,7 @@ cp $SOURCEBINPATH/apps/app_sample.json $i386TGZDIR/apps
 cp $SOURCEBINPATH/templates/error.json $i386TGZDIR/templates
 cp $SOURCEBINPATH/middleware/sample/*.js $i386TGZDIR/middleware/sample
 cp $SOURCEBINPATH/event_handlers/sample/*.js $i386TGZDIR/event_handlers/sample
-cp $SOURCEBINPATH/tyk.conf $i386TGZDIR
+cp $SOURCEBINPATH/tyk.conf.example $i386TGZDIR/tyk.conf
 
 cp -R $i386TGZDIR/* $amd64TGZDIR
 cp -R $i386TGZDIR/* $armTGZDIR
@@ -78,15 +78,25 @@ mv tyk_linux_arm $armBINDIR/$SOURCEBIN
 echo "Copying configuration files into distros"
 cp $SOURCEBINPATH/apps/app_sample.json $i386BINDIR
 cp $SOURCEBINPATH/templates/error.json $i386BINDIR
-cp $SOURCEBINPATH/tyk.example.conf $i386BINDIR/tyk.conf
+cp $SOURCEBINPATH/templates/error.json $i386BINDIR
+cp $SOURCEBINPATH/tyk.conf.example $i386BINDIR/tyk.conf
+cp -r --parents $SOURCEBINPATH/middleware/sample $i386BINDIR
+cp -r --parents $SOURCEBINPATH/event_handlers/sample $i386BINDIR
+cp -r $SOURCEBINPATH/js $i386BINDIR
 
 cp $SOURCEBINPATH/apps/app_sample.json $amd64BINDIR
 cp $SOURCEBINPATH/templates/error.json $amd64BINDIR
-cp $SOURCEBINPATH/tyk.example.conf $amd64BINDIR/tyk.conf
+cp $SOURCEBINPATH/tyk.conf.example $amd64BINDIR/tyk.conf
+cp -r --parents $SOURCEBINPATH/middleware/sample $amd64BINDIR
+cp -r --parents $SOURCEBINPATH/event_handlers/sample $amd64BINDIR
+cp -r $SOURCEBINPATH/js $amd64BINDIR
 
 cp $SOURCEBINPATH/apps/app_sample.json $armBINDIR
 cp $SOURCEBINPATH/templates/error.json $armBINDIR
-cp $SOURCEBINPATH/tyk.example.conf $armBINDIR/tyk.conf
+cp $SOURCEBINPATH/tyk.conf.example $armBINDIR/tyk.conf
+cp -r --parents $SOURCEBINPATH/middleware/sample $armBINDIR
+cp -r --parents $SOURCEBINPATH/event_handlers/sample $armBINDIR
+cp -r $SOURCEBINPATH/js $armBINDIR
 
 # -------------------------------------------------------
 echo "Preparing i386"
