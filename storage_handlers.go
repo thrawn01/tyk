@@ -349,7 +349,8 @@ func (r *RedisStorageManager) GetKeys(filter string) []string {
 		return r.GetKeys(filter)
 	}
 
-	searchStr := r.KeyPrefix + r.hashKey(filter) + "*"
+	searchStr := r.KeyPrefix + filter + "*"
+	log.Debug(searchStr)
 	sessionsInterface, err := db.Do("KEYS", searchStr)
 	if err != nil {
 		log.Error("Error trying to get all keys:")

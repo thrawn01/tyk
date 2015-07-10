@@ -34,6 +34,7 @@ var MainNotifier = RedisNotifier{}
 var DefaultOrgStore = DefaultSessionManager{}
 var DefaultQuotaStore = DefaultSessionManager{}
 var MonitoringHandler TykEventHandler
+var DiagnosticHandler *Diagnostics
 
 //var genericOsinStorage *RedisOsinStorageInterface
 var ApiSpecRegister = make(map[string]*APISpec)
@@ -473,6 +474,29 @@ func loadApps(APISpecs []APISpec, Muxer *http.ServeMux) {
 
 	}
 
+	// Gather diagnostic info
+	if DiagnosticHandler != nil {
+
+		DiagnosticHandler.SetAPICount(len(APISpecs))
+		var specToUse APISpec
+		var found bool
+		if len(APISpecs) > 0 {
+			for _, s := range APISpecs {
+				if !s.UseKeylessAccess {
+					found = true
+					specToUse = s
+					break
+				}
+			}
+
+			if found {
+				KeyIndex := specToUse.SessionManager.GetSessions("")
+				DiagnosticHandler.InitTokenCount(len(KeyIndex))
+			}
+
+		}
+	}
+
 }
 
 // ReloadURLStructure will create a new muxer, reload all the app configs for an
@@ -521,6 +545,11 @@ func init() {
 		--for-api=<path>             Adds blueprint to existing API Defintition as version
 		--as-version=<version>       The version number to use when inserting
 	`
+
+	DiagnosticHandler = Diagnostics{}.New()
+	if DiagnosticHandler != nil {
+		go DiagnosticHandler.StartWaitLoop(5)
+	}
 
 	arguments, err := docopt.Parse(usage, nil, true, "v1.7", false, false)
 	if err != nil {

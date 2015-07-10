@@ -144,6 +144,10 @@ func handleAddOrUpdate(keyName string, r *http.Request) ([]byte, int) {
 			// If we are using a basic auth user, then we need to make the keyname explicit against the OrgId in order to differentiate it
 			// Only if it's NEW
 			if r.Method == "POST" {
+				// Lets store some diagnostic data
+				if DiagnosticHandler != nil {
+					DiagnosticHandler.IncrementTokenCount()
+				}
 				keyName = newSession.OrgID + keyName
 			}
 
@@ -297,6 +301,10 @@ func handleDeleteKey(keyName string, APIID string) ([]byte, int) {
 			"key": keyName,
 		}).Info("Attempted key deletion across all managed API's - success.")
 
+		if DiagnosticHandler != nil {
+			DiagnosticHandler.DecrementTokenCount()
+		}
+
 		return responseMessage, 200
 	}
 
@@ -322,6 +330,10 @@ func handleDeleteKey(keyName string, APIID string) ([]byte, int) {
 	log.WithFields(logrus.Fields{
 		"key": keyName,
 	}).Info("Attempted key deletion - success.")
+
+	if DiagnosticHandler != nil {
+		DiagnosticHandler.DecrementTokenCount()
+	}
 
 	return responseMessage, code
 }
@@ -965,6 +977,10 @@ func createKeyHandler(w http.ResponseWriter, r *http.Request) {
 							newSession.QuotaRenews = time.Now().Unix() + newSession.QuotaRenewalRate
 						}
 						thisAPISpec.SessionManager.UpdateSession(newKey, newSession, thisAPISpec.SessionLifetime)
+
+						if DiagnosticHandler != nil {
+							DiagnosticHandler.IncrementTokenCount()
+						}
 					} else {
 						log.WithFields(logrus.Fields{
 							"apiID": apiId,
