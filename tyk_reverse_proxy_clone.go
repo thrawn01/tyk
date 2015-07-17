@@ -77,7 +77,11 @@ func singleJoiningSlash(a, b string) string {
 	case aslash && bslash:
 		return a + b[1:]
 	case !aslash && !bslash:
-		return a + "/" + b
+		if len(b) > 0 {
+			return a + "/" + b
+		} else {
+			return a
+		}
 	}
 	return a + b
 }
