@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/context"
+	"github.com/gorilla/websocket"
 	"github.com/pmylund/go-cache"
 	"io"
 	"io/ioutil"
@@ -225,7 +226,6 @@ func GetTransport(timeOut int) http.RoundTripper {
 		return ModifiedTransport
 
 	}
-
 	return TykDefaultTransport
 }
 
@@ -371,6 +371,82 @@ func (p *ReverseProxy) CheckCircuitBreakerEnforced(spec *APISpec, req *http.Requ
 	return false, nil
 }
 
+func (p *ReverseProxy) isWebSocketRequest(req *http.Request) bool {
+	connection := strings.ToLower(strings.TrimSpace(req.Header.Get("Connection")))
+	if connection != "upgrade" {
+		return false
+	}
+
+	upgrade := strings.ToLower(strings.TrimSpace(req.Header.Get("Upgrade")))
+	if upgrade != "websocket" {
+		return false
+	}
+	return true
+}
+
+
+func canonicalAddr(url *url.URL) string {
+	addr := url.Host
+	// If the addr has a port number attached
+	if !(strings.LastIndex(addr, ":") > strings.LastIndex(addr, "]")) {
+		return addr + ":80"
+	}
+	return addr
+}
+
+func (p *ReverseProxy) Dial(tripper http.RoundTripper, rw http.ResponseWriter, req *http.Request, isWebSocket bool) (*http.Response, error) {
+	if !isWebSocket {
+		return tripper.RoundTrip(req)
+	}
+
+	transport := tripper.(*http.Transport)
+	url := req.URL
+
+	// Apply proxy settings if exists
+	if transport.Proxy != nil {
+		var err error
+		url, err = transport.Proxy(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO: Support wss:// currently websocket are proxed as ws://
+	target := canonicalAddr(url)
+	dialConn, err := transport.Dial("tcp", target)
+	if err != nil {
+		return nil, err
+	}
+
+	err = req.Write(dialConn)
+	if err != nil {
+		return nil, err
+	}
+
+	jack, ok := rw.(http.Hijacker)
+	if !ok {
+		return nil, err
+	}
+
+	rwConn, _, err := jack.Hijack()
+	if err != nil {
+		return nil, err
+	}
+
+	done := make(chan error, 2)
+	copy := func(dst io.Writer, src io.Reader) {
+		_, err := io.Copy(dst, src)
+		done <- err
+	}
+	go copy(dialConn, rwConn)
+	go copy(rwConn, dialConn)
+	// Wait until someone hangs up which results in an error from io.Copy()
+	<-done
+
+	return nil, nil
+}
+
+
 func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Request, withCache bool) *http.Response {
 	transport := p.Transport
 	if transport == nil {
@@ -394,6 +470,8 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	outreq.ProtoMajor = 1
 	outreq.ProtoMinor = 1
 	outreq.Close = false
+
+	//isWebSocket := p.isWebSocketRequest(req)
 
 	// Remove hop-by-hop headers to the backend.  Especially
 	// important is "Connection" because we want a persistent
@@ -427,6 +505,8 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		thisIP = clientIP
 	}
 
+	isWebSocket := websocket.IsWebSocketUpgrade(req)
+
 	// Circuit breaker
 	breakerEnforced, breakerConf := p.CheckCircuitBreakerEnforced(p.TykAPISpec, req)
 	// TODO:
@@ -439,7 +519,7 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 	if breakerEnforced {
 		log.Debug("ON REQUEST: Breaker status: ", breakerConf.CB.Ready())
 		if breakerConf.CB.Ready() {
-			res, err = transport.RoundTrip(outreq)
+			res, err = p.Dial(transport, rw, outreq, isWebSocket)
 			if err != nil {
 				breakerConf.CB.Fail()
 			} else if res.StatusCode == 500 {
@@ -452,7 +532,7 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 			return nil
 		}
 	} else {
-		res, err = transport.RoundTrip(outreq)
+		res, err = p.Dial(transport, rw, outreq, isWebSocket)
 	}
 
 	if err != nil {
@@ -497,6 +577,10 @@ func (p *ReverseProxy) WrappedServeHTTP(rw http.ResponseWriter, req *http.Reques
 		p.ErrorHandler.HandleError(rw, logreq, "There was a problem proxying the request", 500)
 		return nil
 
+	}
+
+	if isWebSocket {
+		return nil
 	}
 
 	inres := new(http.Response)
